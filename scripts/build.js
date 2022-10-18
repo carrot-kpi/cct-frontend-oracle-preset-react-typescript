@@ -9,7 +9,7 @@ import webpack from 'webpack'
 import ora from 'ora'
 import { createRequire } from 'module'
 import TerserPlugin from 'terser-webpack-plugin'
-import { formatWebpackMessages } from './utils/format-webpack-messages.js'
+import { formatWebpackMessages } from '../.cct/utils/format-webpack-messages.js'
 
 // TODO: support different React versions
 const main = async () => {

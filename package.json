@@ -1,6 +1,6 @@
 {
   "type": "module",
-  "name": "cct-frontend-preset-react-typescript",
+  "name": "cct-frontend-oracle-preset-react-typescript",
   "version": "0.1.0",
   "description": "A preset for developing Carrot templates' frontend with React and Typescript.",
   "author": "Federico Luzzi <federico.luzzi@protonmail.com>",
@@ -24,8 +24,8 @@
     "test": "jest"
   },
   "devDependencies": {
-    "@carrot-kpi/react": "^0.2.0",
-    "@carrot-kpi/sdk": "^1.0.0",
+    "@carrot-kpi/react": "^0.3.1",
+    "@carrot-kpi/sdk": "^1.0.1",
     "@testing-library/jest-dom": "^5.16.5",
     "@testing-library/react": "^13.4.0",
     "@types/git-rev-sync": "^2.0.0",

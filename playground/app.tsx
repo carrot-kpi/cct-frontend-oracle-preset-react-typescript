@@ -1,13 +1,7 @@
 import { ReactElement, useCallback, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { addBundleForTemplate, CarrotCoreProvider } from '@carrot-kpi/react'
-import {
-  ChainId,
-  KpiToken,
-  Oracle,
-  Template,
-  TemplateSpecification,
-} from '@carrot-kpi/sdk'
+import { Oracle, Template, TemplateSpecification } from '@carrot-kpi/sdk'
 import { BigNumber, utils, Wallet } from 'ethers'
 import i18n from 'i18next'
 import baseSpec from '../src/base.json'
@@ -58,22 +52,6 @@ const oracle = new Oracle(
   utils.defaultAbiCoder.encode(['string'], ['Test'])
 )
 
-const kpiToken = new KpiToken(
-  ChainId.GOERLI,
-  randomAddress(),
-  template,
-  [oracle],
-  {
-    description: 'A test KPI token instance',
-    ipfsHash: 'fake-ipfs-hash',
-    tags: ['fake', 'test'],
-    title: 'Test KPI token instance',
-  },
-  Math.floor(Date.now() / 1000) - 86_400,
-  false,
-  utils.defaultAbiCoder.encode(['string'], ['test'])
-)
-
 const App = (): ReactElement => {
   const { connect, connectors } = useConnect({ chainId: CHAIN_ID })
   const { t } = useTranslation()
@@ -104,7 +82,7 @@ const App = (): ReactElement => {
       <CreationForm t={creationFormT} onDone={handleDone} />
       <br />
       <h1>Page</h1>
-      <Page t={pageT} kpiToken={kpiToken} />
+      <Page t={pageT} oracle={oracle} />
     </>
   )
 }

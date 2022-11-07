@@ -25,6 +25,7 @@
     "@typescript-eslint/member-delimiter-style": 0,
     "@typescript-eslint/no-dynamic-delete": "off",
     "@typescript-eslint/comma-dangle": "off",
+    "@typescript-eslint/indent": "off",
     "comma-dangle": "off",
     "react/react-in-jsx-scope": "off",
     "react-hooks/exhaustive-deps": "error",

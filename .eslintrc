@@ -4,6 +4,7 @@
     "es2021": true
   },
   "extends": [
+    "plugin:prettier/recommended",
     "plugin:react/recommended",
     "plugin:react-hooks/recommended",
     "standard-with-typescript"

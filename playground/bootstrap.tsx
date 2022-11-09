@@ -1,4 +1,3 @@
-import 'carrot-scripts'
 import { ReactElement, useCallback, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import {
@@ -6,7 +5,7 @@ import {
   CarrotCoreProvider,
   NamespacedTranslateFunction,
 } from '@carrot-kpi/react'
-import { BigNumber, Wallet, providers, Signer, constants } from 'ethers'
+import { BigNumber, Wallet, providers, Signer } from 'ethers'
 import i18n from 'i18next'
 import { Component as CreationForm } from '../src/creation-form'
 import { bundle as creationFormBundle } from '../src/creation-form/i18n'
@@ -25,8 +24,10 @@ import {
   useProvider,
   useSendTransaction,
 } from 'wagmi'
-import { Fetcher, KpiToken } from '@carrot-kpi/sdk'
-import { defaultAbiCoder, keccak256, toUtf8Bytes } from 'ethers/lib/utils'
+import { Fetcher, Oracle, ORACLE_ABI } from '@carrot-kpi/sdk'
+import { Interface } from 'ethers/lib/utils'
+
+const ORACLE_INTERFACE = new Interface(ORACLE_ABI)
 
 class CarrotConnector extends Connector<
   providers.JsonRpcProvider,
@@ -124,7 +125,7 @@ const App = (): ReactElement => {
     useState<NamespacedTranslateFunction | null>(null)
   const [pageT, setPageT] = useState<NamespacedTranslateFunction | null>(null)
 
-  const [creationTx, setCreationTx] = useState<
+  const [initializationTx, setInitializationTx] = useState<
     providers.TransactionRequest & {
       to: string
     }
@@ -133,10 +134,10 @@ const App = (): ReactElement => {
     data: '',
     value: BigNumber.from('0'),
   })
-  const [kpiToken, setKpiToken] = useState<KpiToken | null>(null)
+  const [oracle, setOracle] = useState<Oracle | null>(null)
 
   const { config } = usePrepareSendTransaction({
-    request: creationTx,
+    request: initializationTx,
   })
   const { sendTransactionAsync } = useSendTransaction(config)
 
@@ -157,23 +158,11 @@ const App = (): ReactElement => {
     if (sendTransactionAsync) {
       const fetch = async (): Promise<void> => {
         const tx = await sendTransactionAsync()
-        const receipt = await tx.wait()
-        const createTokenEventHash = keccak256(
-          toUtf8Bytes('CreateToken(address)')
-        )
-        const createdKpiTokenAddress = receipt.logs.reduce(
-          (address: string, log) => {
-            const [hash] = log.topics
-            if (hash !== createTokenEventHash) return address
-            address = defaultAbiCoder.decode(['address'], log.data)[0]
-            return address
-          },
-          constants.AddressZero
-        )
-        const kpiTokens = await Fetcher.fetchKpiTokens(provider, [
-          createdKpiTokenAddress,
+        await tx.wait()
+        const oracles = await Fetcher.fetchOracles(provider, [
+          CCT_TEMPLATE_ADDRESS,
         ])
-        if (!cancelled) setKpiToken(kpiTokens[createdKpiTokenAddress])
+        if (!cancelled) setOracle(oracles[CCT_TEMPLATE_ADDRESS])
       }
       void fetch()
     }
@@ -182,12 +171,23 @@ const App = (): ReactElement => {
     }
   }, [provider, sendTransactionAsync])
 
-  const handleDone = useCallback(
-    (to: Address, data: string, value: BigNumber) => {
-      setCreationTx({ to, data, value, gasLimit: 10_000_000 })
-    },
-    []
-  )
+  const handleDone = useCallback((data: string, value: BigNumber) => {
+    const initializationData = ORACLE_INTERFACE.encodeFunctionData(
+      'initialize',
+      [
+        CCT_DEPLOYMENT_ACCOUNT_ADDRESS, // creator
+        Wallet.createRandom().address, // kpi token
+        CCT_TEMPLATE_ID, // template id
+        1, // version
+        data, // data
+      ]
+    )
+    setInitializationTx({
+      to: CCT_TEMPLATE_ADDRESS,
+      data: initializationData,
+      value,
+    })
+  }, [])
 
   if (!creationFormT || !pageT) return <>Loading...</>
   return (
@@ -196,10 +196,10 @@ const App = (): ReactElement => {
       <CreationForm t={creationFormT} onDone={handleDone} />
       <br />
       <h1>Page</h1>
-      {!!kpiToken ? (
-        <Page t={pageT} kpiToken={kpiToken} />
+      {!!oracle ? (
+        <Page t={pageT} oracle={oracle} />
       ) : (
-        'Please create a KPI token to show the page'
+        'Please create an oracle to show the page'
       )}
     </>
   )

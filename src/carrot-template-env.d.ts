@@ -1,5 +1,5 @@
 import 'carrot-scripts'
 
 declare global {
-  // declare any other global you need here
+  const MOCK_KPI_TOKEN_TEMPLATE_ID: string
 }

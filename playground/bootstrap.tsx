@@ -20,14 +20,21 @@ import {
   Connector,
   ConnectorData,
   useConnect,
+  useNetwork,
   usePrepareSendTransaction,
   useProvider,
   useSendTransaction,
 } from 'wagmi'
-import { Fetcher, Oracle, ORACLE_ABI } from '@carrot-kpi/sdk'
-import { Interface } from 'ethers/lib/utils'
+import {
+  CHAIN_ADDRESSES,
+  ChainId,
+  FACTORY_ABI,
+  Fetcher,
+  Oracle,
+} from '@carrot-kpi/sdk'
+import { defaultAbiCoder, Interface, solidityKeccak256 } from 'ethers/lib/utils'
 
-const ORACLE_INTERFACE = new Interface(ORACLE_ABI)
+const FACTORY_INTERFACE = new Interface(FACTORY_ABI)
 
 class CarrotConnector extends Connector<
   providers.JsonRpcProvider,
@@ -119,6 +126,7 @@ const supportedChains = [forkedChain]
 const App = (): ReactElement => {
   const { connect, connectors } = useConnect({ chainId: CCT_CHAIN_ID })
   const { t } = useTranslation()
+  const { chain } = useNetwork()
   const provider = useProvider()
 
   const [creationFormT, setCreationFormT] =
@@ -158,11 +166,26 @@ const App = (): ReactElement => {
     if (sendTransactionAsync) {
       const fetch = async (): Promise<void> => {
         const tx = await sendTransactionAsync()
-        await tx.wait()
+        const receipt = await tx.wait()
+        const createOracleEventSignature = solidityKeccak256(
+          ['string'],
+          ['CreateOracle(address)']
+        )
+        const createOracleEvent = receipt.logs.find(
+          (log) => log.topics[0] === createOracleEventSignature
+        )
+        if (!createOracleEvent) {
+          console.warn('could not get creataed oracle address')
+          return
+        }
+        const createdOracleAddress = defaultAbiCoder.decode(
+          ['address'],
+          createOracleEvent.data
+        )[0]
         const oracles = await Fetcher.fetchOracles(provider, [
-          CCT_TEMPLATE_ADDRESS,
+          createdOracleAddress,
         ])
-        if (!cancelled) setOracle(oracles[CCT_TEMPLATE_ADDRESS])
+        if (!cancelled) setOracle(oracles[createdOracleAddress])
       }
       void fetch()
     }
@@ -171,23 +194,36 @@ const App = (): ReactElement => {
     }
   }, [provider, sendTransactionAsync])
 
-  const handleDone = useCallback((data: string, value: BigNumber) => {
-    const initializationData = ORACLE_INTERFACE.encodeFunctionData(
-      'initialize',
-      [
-        CCT_DEPLOYMENT_ACCOUNT_ADDRESS, // creator
-        Wallet.createRandom().address, // kpi token
-        CCT_TEMPLATE_ID, // template id
-        1, // version
-        data, // data
-      ]
-    )
-    setInitializationTx({
-      to: CCT_TEMPLATE_ADDRESS,
-      data: initializationData,
-      value,
-    })
-  }, [])
+  const handleDone = useCallback(
+    (data: string, value: BigNumber) => {
+      if (!chain) return
+      const initializationData = FACTORY_INTERFACE.encodeFunctionData(
+        'createToken',
+        [
+          MOCK_KPI_TOKEN_TEMPLATE_ID,
+          'fake-description',
+          Math.floor(Date.now() / 1000) + 86_400,
+          defaultAbiCoder.encode([], []),
+          defaultAbiCoder.encode(
+            ['uint256', 'uint256', 'bytes'],
+            [
+              CCT_TEMPLATE_ID,
+              value,
+              data +
+                defaultAbiCoder.encode(['uint256'], [Date.now()]).substring(2),
+            ]
+          ),
+        ]
+      )
+      setInitializationTx({
+        to: CHAIN_ADDRESSES[chain.id as ChainId].factory,
+        data: initializationData,
+        value,
+        gasLimit: 10_000_000,
+      })
+    },
+    [chain]
+  )
 
   if (!creationFormT || !pageT) return <>Loading...</>
   return (
